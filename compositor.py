@@ -68,8 +68,14 @@ def build(projectPath, data):
 	
 def processBuildData(projectPath, data):
 	
-	if not os.path.exists(projectPath+"/.jarMakeCache"):
-		os.mkdir(projectPath+"/.jarMakeCache")
+	cacheDir = projectPath+"/.jarMakeCache"
+	
+	if not os.path.exists(cacheDir):
+		
+		os.makedirs(cacheDir)
+		
+		if os.path.exists(projectPath+"/.gitignore"):
+			addGitignoreEntry(projectPath+"/.gitignore", cacheDir)
 	
 	jarName = data["jarName"] if "jarName" in data else "app"
 	outDir = data["outDir"] if "outDir" in data else ""
@@ -259,16 +265,36 @@ def checkUpToDate(projectPath, srcDirs):
 def appendElementsFromMap(m, l, key, proc=None):
 	
 	if key in m:
-		
 		for e in m[key]:
-			
 			if not proc is None and not e is None:
 				e = proc(e)
 				
 			if not e in l:
 				l.append(e)
-
 				
+				
+def addGitignoreEntry(gitignore, entry):
+	
+	entry = entry.replace("\\", "/")
+	gitignore = gitignore.replace("\\", "/")
+	
+	if os.path.isdir(entry) and not entry.endswith("/"):
+		entry = entry+"/"
+		
+	if entry.startswith(gitignore[:gitignore.rfind("/")]):
+		entry = entry[gitignore.rfind("/")+1:]
+	
+	with open(gitignore, "r") as f:
+		content = f.read()
+		
+	for line in content.split("\n"):
+		if line.strip() == entry: return
+		
+	with open(gitignore, "a") as f:
+		if not content.endswith("\n"): f.write("\n")
+		f.write(entry+"\n")
+	
+	
 def cleanup():
 	
 	removeTmpLibs()
