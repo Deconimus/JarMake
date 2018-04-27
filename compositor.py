@@ -7,47 +7,20 @@ path = os.path.dirname(os.path.abspath(__file__)).replace("\\", "/")
 
 def build(projectPath, data):
 	
-	if not os.path.exists(projectPath+"/.jarMakeCache"):
-		os.mkdir(projectPath+"/.jarMakeCache")
+	projectPath = projectPath.replace("\\", "/")
 	
-	jarName = data["jarName"] if "jarName" in data else "app"
-	outDir = data["outDir"] if "outDir" in data else ""
-	mainClass = data["main"] if "main" in data else ""
-	srcDirs = data["sourceDirs"] if "sourceDirs" in data else None
-	imports = data["imports"] if "imports" in data else []
-	dynImports = data["dynImports"] if "dynImports" in data else []
-	dynImportsExt = data["dynImportsExt"] if "dynImportsExt" in data else []
-	extLibDir = data["extLibDir"] if "extLibDir" in data else "lib"
-	packFiles = data["packFiles"] if "packFiles" in data else []
-	
-	if srcDirs is None or len(srcDirs) <= 0:
-		srcDirs = [projectPath+"/src"]
-	
-	if not jarName.lower().endswith(".jar"):
-		jarName = jarName+".jar"
-		
-	completePaths(srcDirs, projectPath)
-	completePaths(imports, projectPath)
-	completePaths(dynImports, projectPath)
-	completePaths(dynImportsExt, projectPath)
-	extLibDir = completePath(extLibDir, projectPath)
-	completePaths(packFiles, projectPath)
-	outDir = completePath(outDir, projectPath)
-	
-	checkForProjects(imports, dynImports, dynImportsExt, srcDirs)
-	checkForProjectsDyn(dynImports)
-	checkForProjectsDyn(dynImportsExt)
+	jarName, outDir, mainClass, srcDirs, imports, dynImports, dynImportsExt, \
+		extLibDir, packFiles = processBuildData(projectPath, data)
 	
 	if not checkUpToDate(projectPath, srcDirs):
 		
-		print("Building "+jarName)
-		
 		binPath = projectPath+"/.jarMakeCache/bin"
 		
-		jarMake.compile(projectPath, srcDirs, imports, dynImports, 
-						dynImportsExt, binPath)
+		jarMake.compile(projectPath, srcDirs, imports, dynImports, dynImportsExt, binPath)
 		
-		imports.append(binPath)
+		if not binPath in imports: imports.append(binPath)
+		
+		print("Making "+jarName)
 		
 		jarMake.buildJar(projectPath, mainClass, imports, dynImports, dynImportsExt,
 						 outDir+"/"+extLibDir, packFiles)
@@ -90,9 +63,46 @@ def build(projectPath, data):
 		
 	jarMake.cpf(projectPath+"/.jarMakeCache/build.jar", outDir+"/"+jarName, True)
 		
-	print(jarName+" done.")
+	print("All targets are done.")
+	
+	
+def processBuildData(projectPath, data):
+	
+	if not os.path.exists(projectPath+"/.jarMakeCache"):
+		os.mkdir(projectPath+"/.jarMakeCache")
+	
+	jarName = data["jarName"] if "jarName" in data else "app"
+	outDir = data["outDir"] if "outDir" in data else ""
+	mainClass = data["main"] if "main" in data else ""
+	srcDirs = data["sourceDirs"] if "sourceDirs" in data else None
+	imports = data["imports"] if "imports" in data else []
+	dynImports = data["dynImports"] if "dynImports" in data else []
+	dynImportsExt = data["dynImportsExt"] if "dynImportsExt" in data else []
+	extLibDir = data["extLibDir"] if "extLibDir" in data else "lib"
+	packFiles = data["packFiles"] if "packFiles" in data else []
+	
+	if srcDirs is None or len(srcDirs) <= 0:
+		srcDirs = [projectPath+"/src"]
+	
+	if not jarName.lower().endswith(".jar"):
+		jarName = jarName+".jar"
 		
-
+	completePaths(srcDirs, projectPath)
+	completePaths(imports, projectPath)
+	completePaths(dynImports, projectPath)
+	completePaths(dynImportsExt, projectPath)
+	extLibDir = completePath(extLibDir, projectPath)
+	completePaths(packFiles, projectPath)
+	outDir = completePath(outDir, projectPath)
+	
+	checkForProjects(imports, dynImports, dynImportsExt, srcDirs)
+	checkForProjectsDyn(dynImports)
+	checkForProjectsDyn(dynImportsExt)
+	
+	return jarName, outDir, mainClass, srcDirs, imports, dynImports, dynImportsExt, \
+			extLibDir, packFiles
+	
+	
 def completePaths(paths, projectPath):
 	
 	for i in range(0, len(paths)):
@@ -146,15 +156,21 @@ def checkForProjects(imports, dynImports, dynImportsExt, srcDirs, dynamic=False)
 					
 				else:
 					
-					if not "srcDirs" in data:
-						data["srcDirs"] = [project+"/src"]
+					#if not "srcDirs" in data:
+					#	data["srcDirs"] = [project+"/src"]
 					
 					complete = lambda p: completePath(p, project)
 						
 					appendElementsFromMap(data, imports, "imports", proc=complete)
 					appendElementsFromMap(data, dynImports, "dynImports", proc=complete)
 					appendElementsFromMap(data, dynImportsExt, "dynImportsExt", proc=complete)
-					appendElementsFromMap(data, srcDirs, "srcDirs", proc=complete)
+					#appendElementsFromMap(data, srcDirs, "srcDirs", proc=complete)
+					
+					binPath = project+"/.jarMakeCache/bin"
+					
+					compileDependency(project, data, binPath)
+					
+					imports.append(binPath)
 					
 					imports[i] = None
 					
@@ -201,6 +217,16 @@ def buildDependency(project, data):
 		return None
 	
 	return libPath
+	
+	
+def compileDependency(projectPath, data, binPath):
+	
+	projectPath = projectPath.replace("\\", "/")
+	
+	jarName, outDir, mainClass, srcDirs, imports, dynImports, dynImportsExt, \
+		extLibDir, packFiles = processBuildData(projectPath, data)
+	
+	jarMake.compile(projectPath, srcDirs, imports, dynImports, dynImportsExt, binPath)
 	
 	
 def checkUpToDate(projectPath, srcDirs):

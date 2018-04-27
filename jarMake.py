@@ -34,8 +34,7 @@ def make(makeFile, outFile=""):
 	compositor.build(projectPath, data)
 	
 
-def compile(projectPath, srcDirs, classPaths, 
-			dynamicIncludes, dynamicLinks, outdir):
+def compile(projectPath, srcDirs, classPaths, dynamicIncludes, dynamicLinks, outdir):
 	
 	if not os.path.exists(outdir): os.makedirs(outdir)
 	
@@ -46,8 +45,10 @@ def compile(projectPath, srcDirs, classPaths,
 	packages = getPackages(srcDirs, projectPath, outdir)
 	
 	if len(packages) <= 0:
-		#print("Nothing to compile.")
+		print(projectPath[projectPath.rfind("/")+1:]+" is up-to-date.")
 		return
+		
+	print("Compiling "+projectPath[projectPath.rfind("/")+1:])
 	
 	srcList = sourceListString(packages)
 	srcPath = " -sourcepath "+pathList(srcDirs) if len(srcDirs) > 0 else ""
@@ -63,8 +64,7 @@ def buildJar(projectPath, mainClass, classPaths, dynamicIncludes,
 	
 	tmp = projectPath+"/.jarMakeCache/tmp"
 	
-	if os.path.exists(tmp):
-		shutil.rmtree(tmp)
+	if os.path.exists(tmp): shutil.rmtree(tmp)
 	
 	os.makedirs(tmp)
 	
@@ -98,7 +98,10 @@ def getPackages(srcDirs, projectPath, binDir, filter=True):
 	files = []
 	
 	for srcDir in srcDirs:
-	
+		
+		if srcDir.endswith("/") or srcDir.endswith("\\"):
+			srcDir = srcDir[:-1]
+		
 		for dirName, subdirList, fileList in os.walk(srcDir):
 			
 			isPackage = False
@@ -112,10 +115,7 @@ def getPackages(srcDirs, projectPath, binDir, filter=True):
 					
 					file = dirName+"/"+f
 					
-					classFile = file[len(srcDir):]
-					if classFile.startswith("/") or classFile.startswith("\\"):
-						classFile = classFile[1:]
-					classFile = binDir+"/"+classFile[:len(classFile)-5]+".class"
+					classFile = binDir+"/"+file[len(srcDir)+1:-5]+".class"
 					
 					if not os.path.exists(classFile) or \
 					   os.path.getmtime(file) >= os.path.getmtime(classFile):
