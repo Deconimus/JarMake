@@ -21,3 +21,13 @@ def cpf(src, dst, replace=True):
 	else:
 		
 		shutil.copy(src, dst)
+		
+		
+def writeFile(filepath, text):
+	
+	dir = os.path.dirname(filepath)
+	if not os.path.exists(dir): os.makedirs(dir)
+	
+	with open(filepath, "w+") as f:
+		
+		f.write(text)

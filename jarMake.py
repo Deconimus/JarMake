@@ -1,5 +1,5 @@
 import os, shutil, zipfile, sys, subprocess, hashlib, platform
-import compositor
+import compositor, meta
 from utils import *
 
 win = sys.platform.startswith("win")
@@ -96,7 +96,7 @@ def buildJar(projectPath, mainClass, classPaths, dynamicIncludes,
 	for f in packFiles:
 		cpf(f, tmp+"/"+(f[f.rfind("/")+1:]))
 	
-	createManifest(projectPath, dynamicIncludes, dynamicLinks, extLibDir, mainClass)
+	meta.writeManifest(projectPath, dynamicIncludes, dynamicLinks, extLibDir, mainClass)
 	
 	outFile = projectPath+"/.jarMakeCache/build.jar"
 	if os.path.exists(outFile): os.remove(outFile)
@@ -306,35 +306,6 @@ def copyListFiles(src, dst):
 	return srcFiles, dstFiles, dstDirs
 	
 	
-def createManifest(projectPath, dynamicIncludes, dynamicLinks, extLibDir, mainClass):
-	
-	txt = "Manifest-Version: 1.0\n"
-	
-	if len(dynamicIncludes) > 0:
-		
-		txt = txt+"Rsrc-Class-Path: ./"
-		for lib in dynamicIncludes:
-			txt = txt+" "+lib.replace("\\", "/").split("/")[-1]
-		txt = txt+"\n"
-	
-	txt = txt + "Class-Path: ."
-	for lib in dynamicLinks:
-		txt = txt+" \""+extLibDir+"/"+lib.replace("\\", "/").split("/")[-1]+"\""
-	txt = txt + "\n"
-	
-	if len(mainClass) > 0:
-	
-		txt = txt + ("Rsrc-" if len(dynamicIncludes) > 0 else "") + "Main-Class: "+mainClass.strip()+"\n";
-		
-		if len(dynamicIncludes) > 0:
-			
-			txt = txt + "Main-Class: org.eclipse.jdt.internal.jarinjarloader.JarRsrcLoader\n"
-	
-	with open(projectPath+"/MANIFEST.MF", "w+") as f:
-		
-		f.write(txt)
-		
-		
 if __name__ == "__main__":
 	
 	if len(sys.argv) < 2:
