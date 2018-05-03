@@ -1,4 +1,4 @@
-import os, shutil, zipfile, sys, subprocess, hashlib
+import os, shutil, zipfile, sys, subprocess, hashlib, platform
 import compositor
 from utils import *
 
@@ -6,9 +6,16 @@ win = sys.platform.startswith("win")
 linux = sys.platform.startswith("linux")
 mac = sys.platform.startswith("darwin")
 
+cmdlimit = 0
+
 if win:
 	import win32api
-
+	if platform.architecture()[0].startswith("64"):
+		cmdlimit = 8191
+	else:
+		cmdlimit = 2047
+else:
+	cmdlimit = os.sysconf("SC_ARG_MAX")
 
 path = os.path.dirname(os.path.abspath(__file__)).replace("\\", "/")
 
@@ -46,22 +53,27 @@ def compile(projectPath, srcDirs, classPaths, dynamicIncludes, dynamicLinks, out
 	timestamp = outdir+"/compile.timestamp"
 	
 	srcPackages, srcFiles = getSources(srcDirs, projectPath, outdir, timestamp)
+	srcStrings = buildSrcStrings(srcPackages, srcFiles)
 	
-	if len(srcPackages) <= 0 and len(srcFiles) <= 0:
+	if not srcStrings:
 		print(projectPath[projectPath.rfind("/")+1:]+" is up-to-date.")
 		return
 		
 	print("Compiling "+projectPath[projectPath.rfind("/")+1:])
 	
-	srcList = sourceListString(srcPackages, srcFiles)
 	srcPath = " -sourcepath "+pathList(srcDirs) if len(srcDirs) > 0 else ""
 	clsPath = " -cp "+pathList(classPaths+dynamicIncludes+dynamicLinks) if len(classPaths) > 0 else ""
 	
-	if srcList:
-		
-		os.system("javac "+srcList+""+clsPath+""+srcPath+" -d \""+outdir+"/\" -Xprefer:newer")
+	cmdPrefix = "javac"
+	cmdSuffix = clsPath+""+srcPath+" -d \""+outdir+"/\" -Xprefer:newer"
 	
-		touch(timestamp)
+	commands = buildCommands(cmdPrefix, cmdSuffix, srcStrings, cmdlimit)
+	
+	for cmd in commands:
+		
+		os.system(cmd)
+	
+	touch(timestamp)
 	
 	
 	
@@ -145,19 +157,40 @@ def getSources(srcDirs, projectPath, binDir, timestamp):
 	return packages, files
 	
 	
-def sourceListString(packages, files):
+def buildCommands(prefix, suffix, sources, cmdlimit):
 	
-	str = ""
+	cmds = []
+	
+	cmd = prefix
+	
+	for src in sources:
+		
+		if len(cmd+" "+src+suffix) > cmdlimit:
+			
+			cmds.append(cmd+suffix)
+			cmd = prefix
+			
+		cmd = cmd + " " + src
+		
+	if len(cmd) > len(prefix):
+		cmds.append(cmd+suffix)
+		
+	return cmds
+		
+	
+def buildSrcStrings(packages, files):
+	
+	srcStrings = []
 	
 	for p in packages:
 		
-		str = str+"\""+p+"/\"*.java "
+		srcStrings.append("\""+p+"/\"*.java")
 		
 	for f in files:
 		
-		str = str+"\""+f+"\" "
+		srcStrings.append("\""+f+"\"")
 		
-	return str.strip()
+	return srcStrings
 	
 	
 def pathList(paths):
