@@ -1,5 +1,6 @@
 import os, shutil, json, hashlib, zipfile
 import jarMake
+from utils import *
 
 
 path = os.path.dirname(os.path.abspath(__file__)).replace("\\", "/")

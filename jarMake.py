@@ -1,5 +1,6 @@
 import os, shutil, zipfile, sys, subprocess, hashlib
 import compositor
+from utils import *
 
 win = sys.platform.startswith("win")
 linux = sys.platform.startswith("linux")
@@ -42,21 +43,26 @@ def compile(projectPath, srcDirs, classPaths, dynamicIncludes, dynamicLinks, out
 	
 	classPaths.append(outdir)
 	
-	packages = getPackages(srcDirs, projectPath, outdir)
+	timestamp = outdir+"/compile.timestamp"
 	
-	if len(packages) <= 0:
+	srcPackages, srcFiles = getSources(srcDirs, projectPath, outdir, timestamp)
+	
+	if len(srcPackages) <= 0 and len(srcFiles) <= 0:
 		print(projectPath[projectPath.rfind("/")+1:]+" is up-to-date.")
 		return
 		
 	print("Compiling "+projectPath[projectPath.rfind("/")+1:])
 	
-	srcList = sourceListString(packages)
+	srcList = sourceListString(srcPackages, srcFiles)
 	srcPath = " -sourcepath "+pathList(srcDirs) if len(srcDirs) > 0 else ""
 	clsPath = " -cp "+pathList(classPaths+dynamicIncludes+dynamicLinks) if len(classPaths) > 0 else ""
 	
-	if len(srcDirs) > 0:
+	if srcList:
 		
 		os.system("javac "+srcList+""+clsPath+""+srcPath+" -d \""+outdir+"/\" -Xprefer:newer")
+	
+		touch(timestamp)
+	
 	
 	
 def buildJar(projectPath, mainClass, classPaths, dynamicIncludes,
@@ -93,9 +99,12 @@ def buildJar(projectPath, mainClass, classPaths, dynamicIncludes,
 	shutil.rmtree(tmp)
 	
 	
-def getPackages(srcDirs, projectPath, binDir, filter=True):
+def getSources(srcDirs, projectPath, binDir, timestamp):
 	
+	packages = []
 	files = []
+	
+	lastCompile = os.path.getmtime(timestamp) if os.path.exists(timestamp) else -1
 	
 	for srcDir in srcDirs:
 		
@@ -104,45 +113,49 @@ def getPackages(srcDirs, projectPath, binDir, filter=True):
 		
 		for dirName, subdirList, fileList in os.walk(srcDir):
 			
-			isPackage = False
-			packageCompiled = True
+			srcCount = 0
+			sourcesToCompile = []
 			
 			for f in fileList:
 				if (f.lower().endswith(".java")):
 					
-					isPackage = True
-					if not filter: break
+					srcCount += 1
 					
-					file = dirName+"/"+f
-					
-					classFile = binDir+"/"+file[len(srcDir)+1:-5]+".class"
+					sourceFile = dirName+"/"+f
+					classFile = binDir+"/"+sourceFile[len(srcDir)+1:-5]+".class"
 					
 					if not os.path.exists(classFile) or \
-					   os.path.getmtime(file) >= os.path.getmtime(classFile):
-					   
-						packageCompiled = False
-						break
-					
-				
-			if isPackage and (not packageCompiled or not filter):
-			
-				name = dirName.replace("\\", "/")
+					   os.path.getmtime(sourceFile) >= \
+					   (lastCompile if lastCompile > 0 else os.path.getmtime(classFile)):
 						
-				if name.startswith(projectPath):
-					name = name[len(projectPath)+1:]
-					
-				files.append(name)
+						sourcesToCompile.append(sourceFile)
+			
+			shortenName = lambda s: s if not s.startswith(projectPath) else s[len(projectPath)+1:]
+			
+			if len(sourcesToCompile) >= srcCount and srcCount > 0:
 				
-	return files
+				packages.append(shortenName(dirName.replace("\\", "/")))
+			
+			else:
+				
+				for src in sourcesToCompile:
+					
+					files.append(shortenName(src.replace("\\", "/")))
+			
+	return packages, files
 	
 	
-def sourceListString(sourceFiles):
+def sourceListString(packages, files):
 	
 	str = ""
 	
-	for f in sourceFiles:
+	for p in packages:
 		
-		str = str+"\""+f+"/\"*.java "
+		str = str+"\""+p+"/\"*.java "
+		
+	for f in files:
+		
+		str = str+"\""+f+"\" "
 		
 	return str.strip()
 	
@@ -258,17 +271,6 @@ def copyListFiles(src, dst):
 			dstFiles.append(dd+"/"+f)
 			
 	return srcFiles, dstFiles, dstDirs
-	
-	
-def cpf(src, dst, replace=True):
-	
-	if win:
-		
-		win32api.CopyFile(src, dst, 0 if replace else 1)
-		
-	else:
-		
-		shutil.copy(src, dst)
 	
 	
 def createManifest(projectPath, dynamicIncludes, dynamicLinks, extLibDir, mainClass):
