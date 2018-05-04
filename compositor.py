@@ -1,7 +1,7 @@
 import os, shutil, json, hashlib, zipfile
-import jarMake
+import jarMake, meta
 from utils import *
-
+from makeData import MakeData
 
 path = os.path.dirname(os.path.abspath(__file__)).replace("\\", "/")
 
@@ -10,64 +10,92 @@ def build(projectPath, data):
 	
 	projectPath = projectPath.replace("\\", "/")
 	
-	jarName, outDir, mainClass, srcDirs, imports, dynImports, dynImportsExt, \
-		extLibDir, packFiles = processBuildData(projectPath, data)
+	makeData = processMakeData(projectPath, data)
 	
-	if not checkUpToDate(projectPath, srcDirs):
+	if not os.path.exists(makeData.outDir):
+		os.makedirs(makeData.outDir)
+	
+	for target in makeData.targets:
 		
-		binPath = projectPath+"/.jarMakeCache/bin"
-		
-		jarMake.compile(projectPath, srcDirs, imports, dynImports, dynImportsExt, binPath)
-		
-		if not binPath in imports: imports.append(binPath)
-		
-		print("Making "+jarName)
-		
-		jarMake.buildJar(projectPath, mainClass, imports, dynImports, dynImportsExt,
-						 outDir+"/"+extLibDir, packFiles)
-		
-		jarShrink = None
-		jarShrinkKeep = []
-		
-		if "jarShrink" in data and "path" in data["jarShrink"]:
-			
-			jarShrink = data["jarShrink"]["path"]
-			
-			if not os.path.exists(jarShrink):
-				print("\""+jarShrink+"\" not found.")
-				jarShrink = None
-			
-			if "keep" in data["jarShrink"]:
-				
-				jarShrinkKeep = data["jarShrink"]["keep"]
-				
-		if not jarShrink is None:
-			
-			jp = "\""+projectPath+"/.jarMakeCache/build.jar"+"\""
-			
-			ks = ""
-			for k in jarShrinkKeep:
-				ks = ks+" -k \""+k+"\""
-				
-			jarShrinkTmp = projectPath+"/.jarMakeCache/jarShrink_tmp"
-			
-			print("Shrinking "+jarName)
-			
-			os.system("java -jar \""+jarShrink+"\" "+jp+" -out "+jp+" -t \""+jarShrinkTmp+"\" -n "+ks)
-			
-			shutil.rmtree(jarShrinkTmp)
-			
-	else:
-		
-		print(jarName+" is up-to-date.")
-		
-		
-	jarMake.cpf(projectPath+"/.jarMakeCache/build.jar", outDir+"/"+jarName, True)
-		
+		buildTarget(makeData, target)
+	
 	print("All targets are done.")
 	
 	
-def processBuildData(projectPath, data):
+def buildTarget(makeData, target):
+	
+	jarUpToDate = target.lower() == "jar" and checkUpToDate(makeData.projectPath, makeData.srcDirs)
+	
+	binPath = makeData.projectPath.replace("\\", "/")+"/.jarMakeCache/bin"
+	
+	if target.lower() == "jar":
+	
+		if not checkUpToDate(makeData.projectPath, makeData.srcDirs):
+			
+			jarMake.compile(makeData, binPath)
+			
+			if not binPath in makeData.imports: makeData.imports.append(binPath)
+			
+			print("Making "+makeData.jarName)
+			
+			jarMake.buildJar(makeData)
+			
+			jarShrink = None
+			jarShrinkKeep = []
+			
+			if "jarShrink" in data and "path" in data["jarShrink"]:
+				
+				jarShrink = data["jarShrink"]["path"]
+				
+				if not os.path.exists(jarShrink):
+					print("\""+jarShrink+"\" not found.")
+					jarShrink = None
+				
+				if "keep" in data["jarShrink"]:
+					
+					jarShrinkKeep = data["jarShrink"]["keep"]
+					
+			if not jarShrink is None:
+				
+				jp = "\""+makeData.projectPath+"/.jarMakeCache/build.jar"+"\""
+				
+				ks = ""
+				for k in jarShrinkKeep:
+					ks = ks+" -k \""+k+"\""
+					
+				jarShrinkTmp = makeData.projectPath+"/.jarMakeCache/jarShrink_tmp"
+				
+				print("Shrinking "+jarName)
+				
+				os.system("java -jar \""+jarShrink+"\" "+jp+" -out "+jp+" -t \""+jarShrinkTmp+"\" -n "+ks)
+				
+				shutil.rmtree(jarShrinkTmp)
+				
+		else:
+			
+			print(makeData.jarName+" is up-to-date.")
+			
+		
+		cpf(makeData.projectPath+"/.jarMakeCache/build.jar", makeData.outDir+"/"+makeData.jarName, True)
+		
+	elif target.lower() == "bin":
+		
+		jarMake.compile(makeData, binPath)
+		
+		outBinPath = makeData.outDir.replace("\\", "/")+"/bin"
+		
+		if not outBinPath == binPath:
+			
+			if os.path.exists(outBinPath): shutil.rmtree(outBinPath)
+			os.makedirs(outBinPath)
+			
+			copyDir(binPath, outBinPath)
+			
+			timestamp = outBinPath+"/compile.timestamp"
+			if os.path.exists(timestamp): os.remove(timestamp)
+			
+	
+def processMakeData(projectPath, data):
 	
 	cacheDir = projectPath+"/.jarMakeCache"
 	
@@ -76,38 +104,16 @@ def processBuildData(projectPath, data):
 		os.makedirs(cacheDir)
 		
 		if os.path.exists(projectPath+"/.gitignore"):
-			addGitignoreEntry(projectPath+"/.gitignore", cacheDir)
+			meta.addGitignoreEntry(projectPath+"/.gitignore", cacheDir)
 	
-	jarName = data["jarName"] if "jarName" in data else "app"
-	outDir = data["outDir"] if "outDir" in data else ""
-	mainClass = data["main"] if "main" in data else ""
-	srcDirs = data["sourceDirs"] if "sourceDirs" in data else None
-	imports = data["imports"] if "imports" in data else []
-	dynImports = data["dynImports"] if "dynImports" in data else []
-	dynImportsExt = data["dynImportsExt"] if "dynImportsExt" in data else []
-	extLibDir = data["extLibDir"] if "extLibDir" in data else "lib"
-	packFiles = data["packFiles"] if "packFiles" in data else []
+	makeData = MakeData()
+	makeData.loadFromData(projectPath, data)
 	
-	if srcDirs is None or len(srcDirs) <= 0:
-		srcDirs = [projectPath+"/src"]
+	checkForProjects(makeData.imports, makeData.dynImports, makeData.dynImportsExt, makeData.srcDirs)
+	checkForProjectsDyn(makeData.dynImports)
+	checkForProjectsDyn(makeData.dynImportsExt)
 	
-	if not jarName.lower().endswith(".jar"):
-		jarName = jarName+".jar"
-		
-	completePaths(srcDirs, projectPath)
-	completePaths(imports, projectPath)
-	completePaths(dynImports, projectPath)
-	completePaths(dynImportsExt, projectPath)
-	extLibDir = completePath(extLibDir, projectPath)
-	completePaths(packFiles, projectPath)
-	outDir = completePath(outDir, projectPath)
-	
-	checkForProjects(imports, dynImports, dynImportsExt, srcDirs)
-	checkForProjectsDyn(dynImports)
-	checkForProjectsDyn(dynImportsExt)
-	
-	return jarName, outDir, mainClass, srcDirs, imports, dynImports, dynImportsExt, \
-			extLibDir, packFiles
+	return makeData
 	
 	
 def completePaths(paths, projectPath):
@@ -208,6 +214,7 @@ def getBuildData(makeFile):
 def buildDependency(project, data):
 	
 	data["outDir"] = path+"/tmp_libs"
+	data["targets"] = ["jar"]
 	
 	if not "jarName" in data:
 		data["jarName"] = project.replace("\\", "/").split("/")[-1]
@@ -230,10 +237,9 @@ def compileDependency(projectPath, data, binPath):
 	
 	projectPath = projectPath.replace("\\", "/")
 	
-	jarName, outDir, mainClass, srcDirs, imports, dynImports, dynImportsExt, \
-		extLibDir, packFiles = processBuildData(projectPath, data)
+	makeData = processMakeData(projectPath, data)
 	
-	jarMake.compile(projectPath, srcDirs, imports, dynImports, dynImportsExt, binPath)
+	jarMake.compile(makeData, binPath)
 	
 	
 def checkUpToDate(projectPath, srcDirs):
@@ -274,28 +280,6 @@ def appendElementsFromMap(m, l, key, proc=None):
 				l.append(e)
 				
 				
-def addGitignoreEntry(gitignore, entry):
-	
-	entry = entry.replace("\\", "/")
-	gitignore = gitignore.replace("\\", "/")
-	
-	if os.path.isdir(entry) and not entry.endswith("/"):
-		entry = entry+"/"
-		
-	if entry.startswith(gitignore[:gitignore.rfind("/")]):
-		entry = entry[gitignore.rfind("/")+1:]
-	
-	with open(gitignore, "r") as f:
-		content = f.read()
-		
-	for line in content.split("\n"):
-		if line.strip() == entry: return
-		
-	with open(gitignore, "a") as f:
-		if not content.endswith("\n"): f.write("\n")
-		f.write(entry+"\n")
-	
-	
 def cleanup():
 	
 	removeTmpLibs()

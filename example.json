@@ -11,7 +11,7 @@
 	},
 	
 	"jarName": "MangAddict.jar",
-	"outDir": "",
+	"outDir": "release",
 	"main": "main.Main",
 	"sourceDirs": ["src"],
 	"imports": [

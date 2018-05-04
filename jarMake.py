@@ -42,27 +42,33 @@ def make(makeFile, outFile=""):
 	compositor.build(projectPath, data)
 	
 
-def compile(projectPath, srcDirs, classPaths, dynamicIncludes, dynamicLinks, outdir):
+def compile(makeData, outdir):
 	
 	if not os.path.exists(outdir): os.makedirs(outdir)
 	
-	os.chdir(projectPath)
+	os.chdir(makeData.projectPath)
 	
-	classPaths.append(outdir)
+	makeData.imports.append(outdir)
 	
 	timestamp = outdir+"/compile.timestamp"
 	
-	srcPackages, srcFiles = getSources(srcDirs, projectPath, outdir, timestamp)
+	srcPackages, srcFiles = getSources(makeData.srcDirs, makeData.projectPath, outdir, timestamp)
 	srcStrings = buildSrcStrings(srcPackages, srcFiles)
 	
 	if not srcStrings:
-		print(projectPath[projectPath.rfind("/")+1:]+" is up-to-date.")
+		print(makeData.projectPath[makeData.projectPath.rfind("/")+1:]+" is up-to-date.")
 		return
 		
-	print("Compiling "+projectPath[projectPath.rfind("/")+1:])
+	print("Compiling "+makeData.projectPath[makeData.projectPath.rfind("/")+1:])
 	
-	srcPath = " -sourcepath "+pathList(srcDirs) if len(srcDirs) > 0 else ""
-	clsPath = " -cp "+pathList(classPaths+dynamicIncludes+dynamicLinks) if len(classPaths) > 0 else ""
+	srcPath = ""
+	clsPath = ""
+	
+	if makeData.srcDirs:
+		srcPath = " -sourcepath "+pathList(makeData.srcDirs)
+	
+	if makeData.imports or makeData.dynImports or makeData.dynImportsExt:
+		clsPath = " -cp "+pathList(makeData.imports+makeData.dynImports+makeData.dynImportsExt)
 	
 	cmdPrefix = "javac"
 	cmdSuffix = clsPath+""+srcPath+" -d \""+outdir+"/\" -Xprefer:newer"
@@ -77,36 +83,35 @@ def compile(projectPath, srcDirs, classPaths, dynamicIncludes, dynamicLinks, out
 	
 	
 	
-def buildJar(projectPath, mainClass, classPaths, dynamicIncludes,
-			 dynamicLinks, extLibDir, packFiles):
+def buildJar(makeData):
 	
-	tmp = projectPath+"/.jarMakeCache/tmp"
+	tmp = makeData.projectPath+"/.jarMakeCache/tmp"
 	
 	if os.path.exists(tmp): shutil.rmtree(tmp)
 	
 	os.makedirs(tmp)
 	
-	copyClassFiles(classPaths, tmp)
-	copyLibraries(dynamicIncludes, tmp)
-	copyLibraries(dynamicLinks, extLibDir)
+	copyClassFiles(makeData.imports, tmp)
+	copyLibraries(makeData.dynImports, tmp)
+	copyLibraries(makeData.dynImportsExt, makeData.outDir+"/"+makeData.extLibDir)
 	
-	if len(dynamicIncludes) > 0:
+	if makeData.dynImportsExt:
 		copyClassFiles([path+"/res/classloader"], tmp)
 		
-	for f in packFiles:
+	for f in makeData.packFiles:
 		cpf(f, tmp+"/"+(f[f.rfind("/")+1:]))
 	
-	meta.writeManifest(projectPath, dynamicIncludes, dynamicLinks, extLibDir, mainClass)
+	meta.writeManifest(makeData)
 	
-	outFile = projectPath+"/.jarMakeCache/build.jar"
+	outFile = makeData.projectPath+"/.jarMakeCache/build.jar"
 	if os.path.exists(outFile): os.remove(outFile)
 	
 	os.chdir(tmp)
-	os.system("jar cmf \""+projectPath+"/MANIFEST.MF\" \""+outFile+"\" *")
+	os.system("jar cmf \""+makeData.projectPath+"/MANIFEST.MF\" \""+outFile+"\" *")
 	
-	os.chdir(projectPath)
+	os.chdir(makeData.projectPath)
 	
-	os.remove(projectPath+"/MANIFEST.MF")
+	os.remove(makeData.projectPath+"/MANIFEST.MF")
 	
 	shutil.rmtree(tmp)
 	
@@ -249,62 +254,6 @@ def copyLibraries(paths, parent):
 			
 			cpf(f, parent+"/"+f.replace("\\", "/").split("/")[-1])
 			
-			
-def copyDir(src, dst):
-	
-	src = os.path.abspath(src) if os.path.exists(src) else src
-	dst = os.path.abspath(dst) if os.path.exists(dst) else dst
-	
-	src = src.strip().replace("\\", "/")
-	dst = dst.strip().replace("\\", "/")
-	
-	if src[-1] == "/": src = src[:-1]
-	if dst[-1] == "/": dst = dst[:-1]
-	
-	#if win:
-		
-		# won't close after completion...
-		
-		#cmd = ["xcopy", src, dst, "/s", "/y"]
-		#subprocess.call(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-		
-	if linux or mac:
-		
-		cmd = ["cp", "-R", "-f", src, dst]
-		subprocess.call(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-		
-	else:
-		
-		srcFiles, dstFiles, dstDirs = copyListFiles(src, dst)
-		
-		for d in dstDirs:
-			if not os.path.exists(d): os.makedirs(d)
-		
-		for i in range(0, len(srcFiles)):
-				
-			cpf(srcFiles[i], dstFiles[i], True)
-	
-	
-def copyListFiles(src, dst):
-	
-	srcFiles = []
-	dstFiles = []
-	dstDirs = []
-	
-	for dirName, subdirList, fileList, in os.walk(src):
-		
-		d = dirName.replace("\\", "/")
-		dd = (dst+dirName[len(src):]).replace("\\", "/")
-		
-		dstDirs.append(dd)
-		
-		for f in fileList:
-			
-			srcFiles.append(d+"/"+f)
-			dstFiles.append(dd+"/"+f)
-			
-	return srcFiles, dstFiles, dstDirs
-	
 	
 if __name__ == "__main__":
 	
