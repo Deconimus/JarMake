@@ -18,11 +18,12 @@ class MakeData:
 		self.extLibDir = "lib"
 		self.packFiles = []
 		self.targets = ["jar"]
+		self.runScripts = []
 		
 	
 	def loadFromData(self, projectPath, data):
 		
-		self.projectPath = projectPath
+		self.projectPath = projectPath.replace("\\", "/")
 		self.jarName = data["jarName"] if "jarName" in data else self.jarName
 		self.outDir = data["outDir"] if "outDir" in data else self.outDir
 		self.mainClass = data["main"] if "main" in data else self.mainClass
@@ -34,15 +35,26 @@ class MakeData:
 		self.packFiles = data["packFiles"] if "packFiles" in data else self.packFiles
 		self.targets = data["target"] if "target" in data else self.targets
 		self.targets = data["targets"] if "targets" in data else self.targets
+		self.runScripts = data["runScripts"] if "runScripts" in data else self.runScripts
+		self.runScripts = data["scripts"] if "scripts" in data else self.runScripts
 		
 		if isinstance(self.targets, str):
 			self.targets = [self.targets]
+			
+		if isinstance(self.runScripts, str):
+			self.runScripts = [self.runScripts]
+			
+		self.targets = [t.lower().strip() for t in self.targets]
+		self.runScripts = [s.lower().strip() for s in self.runScripts]
 		
 		if self.srcDirs is None or len(self.srcDirs) <= 0:
 			self.srcDirs = [self.projectPath+"/src"]
 		
 		if not self.jarName.lower().endswith(".jar"):
 			self.jarName = self.jarName+".jar"
+			
+		if "bin" in self.targets and self.mainClass and not self.runScripts:
+			self.runScripts = ["py"]
 			
 		compositor.completePaths(self.srcDirs, projectPath)
 		compositor.completePaths(self.imports, projectPath)

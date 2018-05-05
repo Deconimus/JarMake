@@ -152,13 +152,35 @@ def getSources(srcDirs, projectPath, binDir, timestamp):
 			if len(sourcesToCompile) >= srcCount and srcCount > 0:
 				
 				packages.append(shortenName(dirName.replace("\\", "/")))
-			
-			else:
+				
+			elif sourcesToCompile:
+				
+				classPackageDir = binDir+"/"+dirName.replace("\\", "/")[len(srcDir)+1:]
+				
+				subClassFiles = []
+				for f in os.listdir(classPackageDir):
+					if f.endswith(".class") and "$" in f:
+						subClassFiles.append(f)
 				
 				for src in sourcesToCompile:
 					
 					files.append(shortenName(src.replace("\\", "/")))
-			
+					
+					prefix = src[src.rfind("/")+1:-5]+"$"
+					
+					i = 0
+					while i < len(subClassFiles):
+						if subClassFiles[i].startswith(prefix):
+							os.remove(classPackageDir+"/"+subClassFiles[i])
+							subClassFiles.pop(i)
+						else:
+							i += 1
+					
+	for package in packages:
+		for f in os.listdir(binDir+"/"+package):
+			if not f.endswith(".class"): continue
+			os.remove(f)
+		
 	return packages, files
 	
 	

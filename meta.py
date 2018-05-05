@@ -53,46 +53,63 @@ def addGitignoreEntry(gitignore, entry):
 		f.write(entry+"\n")
 		
 		
-def javaCmdString(scriptPath, mainClass, binDir, libDir="", extJars=[]):
+def javaBinCmdString(makeData):
 	
-	cmd = "java -cp \""+binDir+"\""
+	cmd = "java -cp \"bin\""
 	
-	if jarDir:
-		cmd += os.pathsep + "\""+libDir+"/\"*"
+	if makeData.extLibDir:
+		cmd += os.pathsep + "\""+makeData.extLibDir+"/\"*"
 		
-	for jar in extJars:
-		cmd += os.pathsep + "\""+jar+"\""
+	#for jar in extJars:
+	#	cmd += os.pathsep + "\""+jar+"\""
 		
 	cmd += " " + mainClass
 
 
-def writeBatchScript(outfile, mainClass, binDir, libDir, extJars):
+def writeBatchBinScript(makeData):
+	
+	outfile = getScriptPath(makeData, ".bat")
 	
 	txt = "@echo off\r\n"
 	
-	txt += javaCmdString(outfile, mainClass, binDir, libDir, extJars)
+	txt += javaBinCmdString(makeData)
 	txt += " %*\r\n"
 	
 	writeFile(outfile, txt)
 		
 		
-def writeShellScript(outfile, mainClass, binDir, libDir, extJars):
+def writeShellBinScript(makeData):
+	
+	outfile = getScriptPath(makeData, ".sh")
 	
 	txt = "#!/bin/sh\n"
 	
-	txt += javaCmdString(outfile, mainClass, binDir, libDir, extJars)
+	txt += javaBinCmdString(makeData)
 	txt += " $@\n"
 	
 	writeFile(outfile, txt)
 
 
-def writePythonScript(outfile, mainClass, binDir, libDir, extJars):
+def writePythonBinScript(makeData):
+	
+	outfile = getScriptPath(makeData, ".py")
 	
 	txt = "import os, sys\n\n"
 	
 	txt += "if __name__ == \"__main__\":\n"
 	txt += "\t\n"
 	txt += "\tos.system(\""
-	txt += javaCmdString(outfile, mainClass, binDir, libDir, extJars)
+	txt += javaBinCmdString(makeData)
 	txt += " \"+\" \".join(sys.argv)\n"
 	
+
+def getScriptPath(makeData, ext):
+	
+	outfile = makeData.outDir+"/"
+	
+	if makeData.jarName:
+		outfile += makeData.jarName[:-4]
+	else:
+		outfile += makeData.projectPath[makeData.projectPath.rfind("/")+1:].lower()
+		
+	return outfile + ext

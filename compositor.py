@@ -15,85 +15,97 @@ def build(projectPath, data):
 	if not os.path.exists(makeData.outDir):
 		os.makedirs(makeData.outDir)
 	
+	binPath = makeData.projectPath.replace("\\", "/")+"/.jarMakeCache/bin"
+	
 	for target in makeData.targets:
 		
-		buildTarget(makeData, target)
-	
+		if target == "jar":
+			
+			buildJarTarget(makeData, data, binPath)
+			
+		elif target == "bin":
+			
+			buildBinTarget(makeData, binPath)
+			
 	print("All targets are done.")
 	
 	
-def buildTarget(makeData, target):
+def buildJarTarget(makeData, data, binPath):
 	
-	jarUpToDate = target.lower() == "jar" and checkUpToDate(makeData.projectPath, makeData.srcDirs)
-	
-	binPath = makeData.projectPath.replace("\\", "/")+"/.jarMakeCache/bin"
-	
-	if target.lower() == "jar":
-	
-		if not checkUpToDate(makeData.projectPath, makeData.srcDirs):
-			
-			jarMake.compile(makeData, binPath)
-			
-			if not binPath in makeData.imports: makeData.imports.append(binPath)
-			
-			print("Making "+makeData.jarName)
-			
-			jarMake.buildJar(makeData)
-			
-			jarShrink = None
-			jarShrinkKeep = []
-			
-			if "jarShrink" in data and "path" in data["jarShrink"]:
-				
-				jarShrink = data["jarShrink"]["path"]
-				
-				if not os.path.exists(jarShrink):
-					print("\""+jarShrink+"\" not found.")
-					jarShrink = None
-				
-				if "keep" in data["jarShrink"]:
-					
-					jarShrinkKeep = data["jarShrink"]["keep"]
-					
-			if not jarShrink is None:
-				
-				jp = "\""+makeData.projectPath+"/.jarMakeCache/build.jar"+"\""
-				
-				ks = ""
-				for k in jarShrinkKeep:
-					ks = ks+" -k \""+k+"\""
-					
-				jarShrinkTmp = makeData.projectPath+"/.jarMakeCache/jarShrink_tmp"
-				
-				print("Shrinking "+jarName)
-				
-				os.system("java -jar \""+jarShrink+"\" "+jp+" -out "+jp+" -t \""+jarShrinkTmp+"\" -n "+ks)
-				
-				shutil.rmtree(jarShrinkTmp)
-				
-		else:
-			
-			print(makeData.jarName+" is up-to-date.")
-			
-		
-		cpf(makeData.projectPath+"/.jarMakeCache/build.jar", makeData.outDir+"/"+makeData.jarName, True)
-		
-	elif target.lower() == "bin":
+	if not checkUpToDate(makeData.projectPath, makeData.srcDirs):
 		
 		jarMake.compile(makeData, binPath)
 		
-		outBinPath = makeData.outDir.replace("\\", "/")+"/bin"
+		if not binPath in makeData.imports: makeData.imports.append(binPath)
 		
-		if not outBinPath == binPath:
+		print("Making "+makeData.jarName)
+		
+		jarMake.buildJar(makeData)
+		
+		jarShrink = None
+		jarShrinkKeep = []
+		
+		if "jarShrink" in data and "path" in data["jarShrink"]:
 			
-			if os.path.exists(outBinPath): shutil.rmtree(outBinPath)
-			os.makedirs(outBinPath)
+			jarShrink = data["jarShrink"]["path"]
 			
-			copyDir(binPath, outBinPath)
+			if not os.path.exists(jarShrink):
+				print("\""+jarShrink+"\" not found.")
+				jarShrink = None
 			
-			timestamp = outBinPath+"/compile.timestamp"
-			if os.path.exists(timestamp): os.remove(timestamp)
+			if "keep" in data["jarShrink"]:
+				
+				jarShrinkKeep = data["jarShrink"]["keep"]
+				
+		if not jarShrink is None:
 			
+			jp = "\""+makeData.projectPath+"/.jarMakeCache/build.jar"+"\""
+			
+			ks = ""
+			for k in jarShrinkKeep:
+				ks = ks+" -k \""+k+"\""
+				
+			jarShrinkTmp = makeData.projectPath+"/.jarMakeCache/jarShrink_tmp"
+			
+			print("Shrinking "+jarName)
+			
+			os.system("java -jar \""+jarShrink+"\" "+jp+" -out "+jp+" -t \""+jarShrinkTmp+"\" -n "+ks)
+			
+			shutil.rmtree(jarShrinkTmp)
+			
+	else:
+		
+		print(makeData.jarName+" is up-to-date.")
+		
+	
+	cpf(makeData.projectPath+"/.jarMakeCache/build.jar", makeData.outDir+"/"+makeData.jarName, True)
+	
+	
+def buildBinTarget(makeData, binPath):
+	
+	jarMake.compile(makeData, binPath)
+		
+	outBinPath = makeData.outDir.replace("\\", "/")+"/bin"
+	
+	if not outBinPath == binPath:
+		
+		if os.path.exists(outBinPath): shutil.rmtree(outBinPath)
+		os.makedirs(outBinPath)
+		
+		copyDir(binPath, outBinPath)
+		
+		timestamp = outBinPath+"/compile.timestamp"
+		if os.path.exists(timestamp): os.remove(timestamp)
+		
+	for script in makeData.runScripts:
+		
+		if script.startswith("py"):
+			writePythonBinScript(makeData)
+		elif script.startswith("bat"):
+			writeBatchBinScript(makeData)
+		elif script.startswith("sh"):
+			writeShellBinScript(makeData)
+	
 	
 def processMakeData(projectPath, data):
 	
