@@ -7,7 +7,7 @@
 	"jarShrink": {
 		
 		"path": "C:/Program Files/jarShrink/jarShrink.jar",
-		"keep": ["net.java.games.input"]
+		"keep": ["mangaLib", "org.newdawn.slick.opengl"]
 	},
 	
 	"jarName": "MangAddict.jar",

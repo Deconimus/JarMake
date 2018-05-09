@@ -89,3 +89,15 @@ def writeFile(filepath, text):
 	with open(filepath, "w+") as f:
 		
 		f.write(text)
+		
+		
+def listsEqual(listA, listB):
+	
+	if len(listA) != len(listB):
+		return False
+		
+	for a, b in zip(listA, listB):
+		if a != b:
+			return False
+			
+	return True

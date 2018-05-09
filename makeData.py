@@ -63,3 +63,34 @@ class MakeData:
 		self.extLibDir = compositor.completePath(self.extLibDir, projectPath)
 		compositor.completePaths(self.packFiles, projectPath)
 		self.outDir = compositor.completePath(self.outDir, projectPath)
+		
+		expandWildcards(self.imports, self.dynImports, self.dynImportsExt, self.packFiles)
+		
+		
+def expandWildcards(*paths):
+	
+	for pths in paths:
+		
+		i = 0
+		while i < len(pths):
+			
+			p = pths[i]
+			
+			name = p[p.rfind("/")+1:]
+			dir = p[:p.rfind("/")]
+			
+			ind = name.find("*")
+			if ind < 0 or not os.path.isdir(dir):
+				i += 1
+				continue
+			
+			prefix = name[:ind]
+			suffix = name[ind+1:]
+			
+			for file in os.listdir(dir):
+				
+				if file.startswith(prefix) and file.endswith(suffix):
+					
+					pths.append(dir+"/"+file)
+					
+			del pths[i]

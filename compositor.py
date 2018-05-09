@@ -17,6 +17,9 @@ def build(projectPath, data):
 	
 	binPath = makeData.projectPath.replace("\\", "/")+"/.jarMakeCache/bin"
 	
+	if not binPath in makeData.imports:
+		makeData.imports.append(binPath)
+	
 	for target in makeData.targets:
 		
 		if target == "jar":
@@ -27,16 +30,16 @@ def build(projectPath, data):
 			
 			buildBinTarget(makeData, binPath)
 			
+	writeBuildImportsJson(makeData)
+			
 	print("All targets are done.")
 	
 	
 def buildJarTarget(makeData, data, binPath):
 	
-	if not checkUpToDate(makeData.projectPath, makeData.srcDirs):
+	if not checkUpToDate(makeData.projectPath, makeData):
 		
 		jarMake.compile(makeData, binPath)
-		
-		if not binPath in makeData.imports: makeData.imports.append(binPath)
 		
 		print("Making "+makeData.jarName)
 		
@@ -141,7 +144,15 @@ def completePath(p, projectPath):
 	
 	if not p.startswith("/") and not (len(p) > 1 and p[1] == ":"):
 		
-		return projectPath+"/"+p
+		p = projectPath+"/"+p
+		
+	ind = p.find("/../")
+	while ind >= 0:
+		left = p[:ind]
+		right = p[ind+4:]
+		left = left[:left.rindex("/")]
+		p = left + "/" + right
+		ind = p.find("/../")
 		
 	return p
 	
@@ -254,7 +265,7 @@ def compileDependency(projectPath, data, binPath):
 	jarMake.compile(makeData, binPath)
 	
 	
-def checkUpToDate(projectPath, srcDirs):
+def checkUpToDate(projectPath, makeData):
 	
 	if not os.path.exists(projectPath+"/.jarMakeCache/build.jar"):
 		return False
@@ -264,7 +275,7 @@ def checkUpToDate(projectPath, srcDirs):
 	if os.path.getmtime(projectPath+"/make.json") > buildTime:
 		return False
 	
-	for srcDir in srcDirs:
+	for srcDir in makeData.srcDirs:
 		for dirName, subdirList, fileList in os.walk(srcDir):
 			
 			if os.path.getmtime(dirName) > buildTime:
@@ -278,9 +289,41 @@ def checkUpToDate(projectPath, srcDirs):
 				if os.path.getmtime(dirName+"/"+f) > buildTime:
 					return False
 	
+	for files in makeData.imports, makeData.dynImports, makeData.dynImportsExt:			
+		for file in files:
+			if os.path.isdir(file) or not os.path.exists(file): continue
+			if os.path.getmtime(file) >= buildTime: return False
+	
+	# due to wildcards, it is possible for the imports to change while the makefile doesn't:
+	
+	buildImportsFile = makeData.projectPath+"/.jarMakeCache/buildImports.json"
+	if not os.path.exists(buildImportsFile): return False
+		
+	with open(buildImportsFile) as f:
+		buildImportsData = json.load(f)
+		
+	if not makeData.imports == buildImportsData["imports"] or \
+	   not makeData.dynImports == buildImportsData["dynImports"] or \
+	   not makeData.dynImportsExt == buildImportsData["dynImportsExt"] or \
+	   not makeData.packFiles == buildImportsData["packFiles"]:
+	   
+	   return False
+	
 	return True
 	
 	
+def writeBuildImportsJson(makeData):
+	
+	data = {}
+	data["imports"] = makeData.imports
+	data["dynImports"] = makeData.dynImports
+	data["dynImportsExt"] = makeData.dynImportsExt
+	data["packFiles"] = makeData.packFiles
+	
+	with open(makeData.projectPath+"/.jarMakeCache/buildImports.json", "w+") as f:
+		json.dump(data, f, indent=4)
+		
+		
 def appendElementsFromMap(m, l, key, proc=None):
 	
 	if key in m:
