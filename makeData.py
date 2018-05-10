@@ -11,7 +11,7 @@ class MakeData:
 		self.jarName = "app"
 		self.outDirs = ["release"]
 		self.mainClass = ""
-		self.srcDirs = None
+		self.srcDirs = ["src"]
 		self.imports = []
 		self.dynImports = []
 		self.dynImportsExt = []
@@ -19,7 +19,8 @@ class MakeData:
 		self.packFiles = []
 		self.targets = ["jar"]
 		self.runScripts = []
-		self.javacArgs = []
+		self.javacOptions = []
+		self.runOptions = []
 		
 	
 	def loadFromData(self, projectPath, data):
@@ -40,27 +41,27 @@ class MakeData:
 		self.targets = data["targets"] if "targets" in data else self.targets
 		self.runScripts = data["runScripts"] if "runScripts" in data else self.runScripts
 		self.runScripts = data["scripts"] if "scripts" in data else self.runScripts
-		self.javacArgs = data["javacArgs"] if "javacArgs" in data else self.javacArgs
+		self.javacOptions = data["javacOptions"] if "javacOptions" in data else self.javacOptions
+		self.runOptions = data["runOptions"] if "runOptions" in data else self.runOptions
 		
-		if isinstance(self.targets, str):
-			self.targets = [self.targets]
-			
-		if isinstance(self.runScripts, str):
-			self.runScripts = [self.runScripts]
-			
-		if isinstance(self.outDirs, str):
-			self.outDirs = [self.outDirs]
-			
+		self.srcDirs = ensureList(self.srcDirs)
+		self.imports = ensureList(self.imports)
+		self.dynImports = ensureList(self.dynImports)
+		self.dynImportsExt = ensureList(self.dynImportsExt)
+		self.packFiles = ensureList(self.packFiles)
+		self.targets = ensureList(self.targets)
+		self.runScripts = ensureList(self.runScripts)
+		self.outDirs = ensureList(self.outDirs)
+		self.runOptions = ensureList(self.runOptions)
+		self.javacOptions = ensureList(self.javacOptions)
+		
 		self.targets = [t.lower().strip() for t in self.targets]
 		self.runScripts = [s.lower().strip() for s in self.runScripts]
-		
-		if self.srcDirs is None or len(self.srcDirs) <= 0:
-			self.srcDirs = [self.projectPath+"/src"]
 		
 		if not self.jarName.lower().endswith(".jar"):
 			self.jarName = self.jarName+".jar"
 			
-		if "bin" in self.targets and self.mainClass and not self.runScripts:
+		if ("bin" in self.targets or self.javacOptions) and self.mainClass and not self.runScripts:
 			self.runScripts = ["py"]
 			
 		compositor.completePaths(self.srcDirs, projectPath)
@@ -101,3 +102,9 @@ def expandWildcards(*paths):
 					pths.append(dir+"/"+file)
 					
 			del pths[i]
+			
+			
+def ensureList(lst):
+	if not isinstance(lst, list):
+		return [lst]
+	return lst

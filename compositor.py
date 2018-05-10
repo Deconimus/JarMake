@@ -82,6 +82,10 @@ def buildJarTarget(makeData, data, binPath):
 		
 	
 	for outDir in makeData.outDirs:
+		
+		for scriptType in makeData.runScripts:
+			meta.writeScript(makeData, outDir, "jar", scriptType)
+		
 		cpf(makeData.projectPath+"/.jarMakeCache/build.jar", outDir+"/"+makeData.jarName, True)
 	
 	
@@ -105,15 +109,9 @@ def buildBinTarget(makeData, binPath):
 			if os.path.exists(timestamp): os.remove(timestamp)
 			if os.path.exists(compilelog): os.remove(compilelog)
 			
-		for script in makeData.runScripts:
+		for scriptType in makeData.runScripts:
 			
-			if script.startswith("py"):
-				writePythonBinScript(makeData, outDir)
-			elif script.startswith("bat"):
-				writeBatchBinScript(makeData, outDir)
-			elif script.startswith("sh"):
-				writeShellBinScript(makeData, outDir)
-				
+			meta.writeScript(makeData, outDir, "bin", scriptType)
 				
 def buildCompileTarget(makeData, binPath):
 	

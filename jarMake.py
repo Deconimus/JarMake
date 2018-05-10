@@ -91,9 +91,10 @@ def compile(makeData, outdir):
 	
 	cmdPrefix = "javac"
 	
-	cmdSuffix = clsPath+""+srcPath+" -d \""+outdir+"/\" -Xprefer:newer "
-	cmdSuffix += " ".join(makeData.javacArgs)
-	cmdSuffix = cmdSuffix.strip()
+	cmdSuffix = clsPath+""+srcPath+" -d \""+outdir+"/\" -Xprefer:newer"
+	
+	if makeData.javacOptions:
+		cmdSuffix += " " + " ".join(makeData.javacOptions)
 	
 	commands = buildCommands(cmdPrefix, cmdSuffix, srcStrings, cmdlimit)
 	
@@ -128,6 +129,9 @@ def buildJar(makeData):
 		copyClassFiles([path+"/res/classloader"], tmp)
 		
 	for f in makeData.packFiles:
+		if not os.path.exists(f):
+			print("Warning: Couldn't find \""+f+"\"!")
+			continue
 		cpf(f, tmp+"/"+(f[f.rfind("/")+1:]))
 	
 	meta.writeManifest(makeData)

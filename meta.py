@@ -53,44 +53,75 @@ def addGitignoreEntry(gitignore, entry):
 		f.write(entry+"\n")
 		
 		
-def javaBinCmdString(makeData):
+def javaCmdString(makeData, target):
 	
-	cmd = "java -cp \"bin\""
+	cmd = "java"
 	
-	if makeData.extLibDir:
-		cmd += os.pathsep + "\""+makeData.extLibDir+"/\"*"
+	if makeData.runOptions:
+		cmd += " "
+		cmd += " ".join(makeData.runOptions)
+	
+	if target == "bin":
+	
+		cmd += " -cp \"bin\""
 		
-	#for jar in extJars:
-	#	cmd += os.pathsep + "\""+jar+"\""
+		if makeData.extLibDir:
+			cmd += os.pathsep + "\""+makeData.extLibDir+"/\"*"
+			
+		#for jar in extJars:
+		#	cmd += os.pathsep + "\""+jar+"\""
 		
-	cmd += " " + mainClass
+		cmd += " " + makeData.mainClass
+	
+	elif target == "jar":
+	
+		cmd += " -jar "
+			
+		if " " in makeData.jarName:
+			cmd += "\""+makeData.jarName+"\""
+		else:
+			cmd += makeData.jarName
+	
+	return cmd
 
 
-def writeBatchBinScript(makeData, outDir):
+def writeScript(makeData, outDir, target, scriptType):
+	
+	if scriptType.startswith("py"):
+		writePythonScript(makeData, outDir, target)
+		
+	elif scriptType.startswith("bat"):
+		writeBatchScript(makeData, outDir, target)
+		
+	elif scriptType.startswith("sh"):
+		writeShellScript(makeData, outDir, target)
+
+
+def writeBatchScript(makeData, outDir, target):
 	
 	outfile = getScriptPath(makeData, outDir, ".bat")
 	
 	txt = "@echo off\r\n"
 	
-	txt += javaBinCmdString(makeData)
+	txt += javaCmdString(makeData, target)
 	txt += " %*\r\n"
 	
 	writeFile(outfile, txt)
 		
 		
-def writeShellBinScript(makeData, outDir):
+def writeShellScript(makeData, outDir, target):
 	
 	outfile = getScriptPath(makeData, outDir, ".sh")
 	
 	txt = "#!/bin/sh\n"
 	
-	txt += javaBinCmdString(makeData)
+	txt += javaCmdString(makeData, target)
 	txt += " $@\n"
 	
 	writeFile(outfile, txt)
 
 
-def writePythonBinScript(makeData, outDir):
+def writePythonScript(makeData, outDir, target):
 	
 	outfile = getScriptPath(makeData, outDir, ".py")
 	
@@ -99,8 +130,10 @@ def writePythonBinScript(makeData, outDir):
 	txt += "if __name__ == \"__main__\":\n"
 	txt += "\t\n"
 	txt += "\tos.system(\""
-	txt += javaBinCmdString(makeData)
-	txt += " \"+\" \".join(sys.argv)\n"
+	txt += javaCmdString(makeData, target)
+	txt += " \"+\" \".join(sys.argv[1:])\n"
+	
+	writeFile(outfile, txt)
 	
 
 def getScriptPath(makeData, outDir, ext):
