@@ -1,10 +1,10 @@
-import os, sys
+import os, sys, subprocess
 
 
 path = os.path.dirname(os.path.abspath(__file__)).replace("\\", "/")
 
 
-def main(outFile):
+def main():
 	
 	if not os.path.exists(path+"/make.json"):
 		print("\""+path+"/make.json\" not found.")
@@ -28,13 +28,14 @@ def main(outFile):
 		
 	jarMake = jarMake.replace("\\", "/")
 	
-	os.system("python \""+jarMake+"\" \""+path.replace("\\", "/")+"/make.json\" "+outFile)
+	cmd = ["python", jarMake, path+"/make.json"]
+	
+	if len(sys.argv) > 1:
+		cmd = cmd+sys.argv[1:]
+	
+	subprocess.call(cmd)
 	
 	
 if __name__ == "__main__":
 	
-	outFile = ""
-	if len(sys.argv) > 1:
-		outFile = "\""+sys.argv[1]+"\""
-	
-	main(outFile)
+	main()
