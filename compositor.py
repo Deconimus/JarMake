@@ -12,23 +12,23 @@ def build(projectPath, data):
 	
 	makeData = processMakeData(projectPath, data)
 	
-	if not os.path.exists(makeData.outDir):
-		os.makedirs(makeData.outDir)
+	for outDir in makeData.outDirs:
+		if not os.path.exists(outDir): os.makedirs(outDir)
 	
 	binPath = makeData.projectPath.replace("\\", "/")+"/.jarMakeCache/bin"
 	
-	if not binPath in makeData.imports:
-		makeData.imports.append(binPath)
+	if not binPath in makeData.imports: makeData.imports.append(binPath)
 	
 	for target in makeData.targets:
 		
 		if target == "jar":
-			
 			buildJarTarget(makeData, data, binPath)
 			
 		elif target == "bin":
-			
 			buildBinTarget(makeData, binPath)
+			
+		elif target == "compile":
+			buildCompileTarget(makeData, binPath)
 			
 	writeBuildImportsJson(makeData)
 			
@@ -60,7 +60,7 @@ def buildJarTarget(makeData, data, binPath):
 				
 				jarShrinkKeep = data["jarShrink"]["keep"]
 				
-		if not jarShrink is None:
+		if jarShrink:
 			
 			jp = "\""+makeData.projectPath+"/.jarMakeCache/build.jar"+"\""
 			
@@ -70,7 +70,7 @@ def buildJarTarget(makeData, data, binPath):
 				
 			jarShrinkTmp = makeData.projectPath+"/.jarMakeCache/jarShrink_tmp"
 			
-			print("Shrinking "+jarName)
+			print("Shrinking "+makeData.jarName)
 			
 			os.system("java -jar \""+jarShrink+"\" "+jp+" -out "+jp+" -t \""+jarShrinkTmp+"\" -n "+ks)
 			
@@ -81,33 +81,43 @@ def buildJarTarget(makeData, data, binPath):
 		print(makeData.jarName+" is up-to-date.")
 		
 	
-	cpf(makeData.projectPath+"/.jarMakeCache/build.jar", makeData.outDir+"/"+makeData.jarName, True)
+	for outDir in makeData.outDirs:
+		cpf(makeData.projectPath+"/.jarMakeCache/build.jar", outDir+"/"+makeData.jarName, True)
 	
 	
 def buildBinTarget(makeData, binPath):
 	
 	jarMake.compile(makeData, binPath)
 		
-	outBinPath = makeData.outDir.replace("\\", "/")+"/bin"
+	for outDir in makeData.outDirs:
+		
+		outBinPath = outDir.replace("\\", "/")+"/bin"
+		
+		if not outBinPath == binPath:
+			
+			if os.path.exists(outBinPath): shutil.rmtree(outBinPath)
+			os.makedirs(outBinPath)
+			
+			copyDir(binPath, outBinPath)
+			
+			timestamp = outBinPath+"/compile.timestamp"
+			compilelog = outBinPath+"/compile.log"
+			if os.path.exists(timestamp): os.remove(timestamp)
+			if os.path.exists(compilelog): os.remove(compilelog)
+			
+		for script in makeData.runScripts:
+			
+			if script.startswith("py"):
+				writePythonBinScript(makeData, outDir)
+			elif script.startswith("bat"):
+				writeBatchBinScript(makeData, outDir)
+			elif script.startswith("sh"):
+				writeShellBinScript(makeData, outDir)
+				
+				
+def buildCompileTarget(makeData, binPath):
 	
-	if not outBinPath == binPath:
-		
-		if os.path.exists(outBinPath): shutil.rmtree(outBinPath)
-		os.makedirs(outBinPath)
-		
-		copyDir(binPath, outBinPath)
-		
-		timestamp = outBinPath+"/compile.timestamp"
-		if os.path.exists(timestamp): os.remove(timestamp)
-		
-	for script in makeData.runScripts:
-		
-		if script.startswith("py"):
-			writePythonBinScript(makeData)
-		elif script.startswith("bat"):
-			writeBatchBinScript(makeData)
-		elif script.startswith("sh"):
-			writeShellBinScript(makeData)
+	jarMake.compile(makeData, binPath)
 	
 	
 def processMakeData(projectPath, data):
@@ -157,8 +167,8 @@ def completePath(p, projectPath):
 	return p
 	
 	
-def isProject(directory):
-	return os.path.exists(directory+"/make.json") or directory.endswith("/make.json")
+def isProject(path):
+	return path.endswith(".json") or os.path.exists(path+"/make.json")
 	
 
 def checkForProjectsDyn(imports):
@@ -177,10 +187,11 @@ def checkForProjects(imports, dynImports, dynImportsExt, srcDirs, dynamic=False)
 			
 			project = project.replace("\\", "/")
 			
-			if project.endswith("/make.json"):
-				project = project[:project.rindex("/")]
-			
 			makeFile = project+"/"+"make.json"
+			
+			if project.endswith(".json"):
+				makeFile = project
+				project = project[:project.rfind("/")]
 			
 			data = getBuildData(makeFile)
 			
@@ -192,21 +203,18 @@ def checkForProjects(imports, dynImports, dynImportsExt, srcDirs, dynamic=False)
 					
 				else:
 					
-					#if not "srcDirs" in data:
-					#	data["srcDirs"] = [project+"/src"]
-					
 					complete = lambda p: completePath(p, project)
 						
 					appendElementsFromMap(data, imports, "imports", proc=complete)
 					appendElementsFromMap(data, dynImports, "dynImports", proc=complete)
 					appendElementsFromMap(data, dynImportsExt, "dynImportsExt", proc=complete)
-					#appendElementsFromMap(data, srcDirs, "srcDirs", proc=complete)
 					
 					binPath = project+"/.jarMakeCache/bin"
 					
 					compileDependency(project, data, binPath)
 					
-					imports.append(binPath)
+					if not binPath in imports:
+						imports.append(binPath)
 					
 					imports[i] = None
 					

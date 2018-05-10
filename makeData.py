@@ -9,7 +9,7 @@ class MakeData:
 		
 		self.projectPath = ""
 		self.jarName = "app"
-		self.outDir = "release"
+		self.outDirs = ["release"]
 		self.mainClass = ""
 		self.srcDirs = None
 		self.imports = []
@@ -19,14 +19,17 @@ class MakeData:
 		self.packFiles = []
 		self.targets = ["jar"]
 		self.runScripts = []
+		self.javacArgs = []
 		
 	
 	def loadFromData(self, projectPath, data):
 		
 		self.projectPath = projectPath.replace("\\", "/")
 		self.jarName = data["jarName"] if "jarName" in data else self.jarName
-		self.outDir = data["outDir"] if "outDir" in data else self.outDir
+		self.outDirs = data["outDir"] if "outDir" in data else self.outDirs
+		self.outDirs = data["outDirs"] if "outDirs" in data else self.outDirs
 		self.mainClass = data["main"] if "main" in data else self.mainClass
+		self.mainClass = data["mainClass"] if "mainClass" in data else self.mainClass
 		self.srcDirs = data["sourceDirs"] if "sourceDirs" in data else self.srcDirs
 		self.imports = data["imports"] if "imports" in data else self.imports
 		self.dynImports = data["dynImports"] if "dynImports" in data else self.dynImports
@@ -37,12 +40,16 @@ class MakeData:
 		self.targets = data["targets"] if "targets" in data else self.targets
 		self.runScripts = data["runScripts"] if "runScripts" in data else self.runScripts
 		self.runScripts = data["scripts"] if "scripts" in data else self.runScripts
+		self.javacArgs = data["javacArgs"] if "javacArgs" in data else self.javacArgs
 		
 		if isinstance(self.targets, str):
 			self.targets = [self.targets]
 			
 		if isinstance(self.runScripts, str):
 			self.runScripts = [self.runScripts]
+			
+		if isinstance(self.outDirs, str):
+			self.outDirs = [self.outDirs]
 			
 		self.targets = [t.lower().strip() for t in self.targets]
 		self.runScripts = [s.lower().strip() for s in self.runScripts]
@@ -62,7 +69,7 @@ class MakeData:
 		compositor.completePaths(self.dynImportsExt, projectPath)
 		self.extLibDir = compositor.completePath(self.extLibDir, projectPath)
 		compositor.completePaths(self.packFiles, projectPath)
-		self.outDir = compositor.completePath(self.outDir, projectPath)
+		compositor.completePaths(self.outDirs, projectPath)
 		
 		expandWildcards(self.imports, self.dynImports, self.dynImportsExt, self.packFiles)
 		

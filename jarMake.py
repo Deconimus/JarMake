@@ -1,4 +1,4 @@
-import os, shutil, zipfile, sys, subprocess, hashlib, platform
+import os, shutil, zipfile, sys, subprocess, hashlib, platform, argparse
 import compositor, meta
 from utils import *
 
@@ -21,7 +21,7 @@ path = os.path.dirname(os.path.abspath(__file__)).replace("\\", "/")
 
 
 # root function
-def make(makeFile, outFile=""):
+def make(makeFile, args):
 	
 	makeFile = makeFile.replace("\\", "/")
 	projectPath = makeFile[:makeFile.rfind("/")]
@@ -31,13 +31,19 @@ def make(makeFile, outFile=""):
 	if data is None or len(data) <= 0:
 		return
 	
-	if len(outFile) > 0:
-		
-		if "/" in outFile:
-			data["outDir"] = outFile[:outFile.rfind("/")]
-			data["jarName"] = outFile[outFile.rfind("/")+1:]
+	if args.outFile:
+		args.outFile = args.outFile.replace("\\", "/")
+		if "/" in args.outFile:
+			data["outDir"] = args.outFile[:outFile.rfind("/")]
+			data["jarName"] = args.outFile[outFile.rfind("/")+1:]
 		else:
-			data["jarName"] = outFile
+			data["jarName"] = args.outFile
+			
+	if args.outDirs: data["outDirs"] = args.outDirs
+	if args.jarName: data["jarName"] = args.jarName
+	if args.runScripts: data["runScripts"] = args.runScripts
+	if args.targets: data["targets"] = args.targets
+	if args.mainClass: data["mainClass"] = args.mainClass
 	
 	compositor.build(projectPath, data)
 	
@@ -48,9 +54,11 @@ def compile(makeData, outdir):
 	
 	os.chdir(makeData.projectPath)
 	
-	makeData.imports.append(outdir)
+	if not outdir in makeData.imports:
+		makeData.imports.append(outdir)
 	
 	timestamp = outdir+"/compile.timestamp"
+	log = open(outdir+"/compile.log", "w+")
 	
 	srcPackages, srcFiles = getSources(makeData.srcDirs, makeData.projectPath, outdir, timestamp)
 	srcStrings = buildSrcStrings(srcPackages, srcFiles)
@@ -61,6 +69,17 @@ def compile(makeData, outdir):
 		
 	print("Compiling "+makeData.projectPath[makeData.projectPath.rfind("/")+1:])
 	
+	log.write("Sources to compile:\n\n")
+	for src in srcStrings:
+		log.write(src+"\n")
+	
+	log.write("\nClasspaths:\n\n")
+	for lst in makeData.imports, makeData.dynImports, makeData.dynImportsExt:
+		for s in lst:
+			log.write(s+"\n")
+	
+	log.flush()
+	
 	srcPath = ""
 	clsPath = ""
 	
@@ -68,19 +87,28 @@ def compile(makeData, outdir):
 		srcPath = " -sourcepath "+pathList(makeData.srcDirs)
 	
 	if makeData.imports or makeData.dynImports or makeData.dynImportsExt:
-		clsPath = " -cp "+pathList(makeData.imports+makeData.dynImports+makeData.dynImportsExt)
+		clsPath = " -cp "+pathList(makeData.imports, makeData.dynImports, makeData.dynImportsExt)
 	
 	cmdPrefix = "javac"
-	cmdSuffix = clsPath+""+srcPath+" -d \""+outdir+"/\" -Xprefer:newer"
+	
+	cmdSuffix = clsPath+""+srcPath+" -d \""+outdir+"/\" -Xprefer:newer "
+	cmdSuffix += " ".join(makeData.javacArgs)
+	cmdSuffix = cmdSuffix.strip()
 	
 	commands = buildCommands(cmdPrefix, cmdSuffix, srcStrings, cmdlimit)
+	
+	log.write("\nJavac commands:\n\n")
 	
 	for cmd in commands:
 		
 		os.system(cmd)
+		
+		log.write(cmd+"\n\n")
+		
+	log.flush()
+	log.close()
 	
 	touch(timestamp)
-	
 	
 	
 def buildJar(makeData):
@@ -93,7 +121,8 @@ def buildJar(makeData):
 	
 	copyClassFiles(makeData.imports, tmp)
 	copyLibraries(makeData.dynImports, tmp)
-	copyLibraries(makeData.dynImportsExt, makeData.outDir+"/"+makeData.extLibDir)
+	for outDir in makeData.outDirs:
+		copyLibraries(makeData.dynImportsExt, outDir+"/"+makeData.extLibDir)
 	
 	if makeData.dynImportsExt:
 		copyClassFiles([path+"/res/classloader"], tmp)
@@ -149,13 +178,18 @@ def getSources(srcDirs, projectPath, binDir, timestamp):
 			
 			shortenName = lambda s: s if not s.startswith(projectPath) else s[len(projectPath)+1:]
 			
+			classPackageDir = binDir+"/"+dirName.replace("\\", "/")[len(srcDir)+1:]
+			
 			if len(sourcesToCompile) >= srcCount and srcCount > 0:
 				
 				packages.append(shortenName(dirName.replace("\\", "/")))
 				
-			elif sourcesToCompile:
+				if os.path.exists(classPackageDir):
+					for f in os.listdir(classPackageDir):
+						if not f.endswith(".class"): continue
+						os.remove(f)
 				
-				classPackageDir = binDir+"/"+dirName.replace("\\", "/")[len(srcDir)+1:]
+			elif sourcesToCompile:
 				
 				subClassFiles = []
 				for f in os.listdir(classPackageDir):
@@ -176,11 +210,6 @@ def getSources(srcDirs, projectPath, binDir, timestamp):
 						else:
 							i += 1
 					
-	for package in packages:
-		for f in os.listdir(binDir+"/"+package):
-			if not f.endswith(".class"): continue
-			os.remove(f)
-		
 	return packages, files
 	
 	
@@ -220,21 +249,21 @@ def buildSrcStrings(packages, files):
 	return srcStrings
 	
 	
-def pathList(paths):
+def pathList(*paths):
 	
-	if len(paths) <= 0:
-		return ""
+	if not paths: return ""
 	
 	str = ""
 	
-	for p in paths:
-		
-		str = str+"\""+p
-		
-		if not p.lower().endswith(".jar"):
-			str = str+"/"
+	for pths in paths:
+		for p in pths:
 			
-		str = str+"\""+os.pathsep
+			str = str+"\""+p
+			
+			if not p.lower().endswith(".jar"):
+				str = str+"/"
+				
+			str = str+"\""+os.pathsep
 		
 	return str[:-1]
 	
@@ -276,22 +305,32 @@ def copyLibraries(paths, parent):
 			
 			cpf(f, parent+"/"+f.replace("\\", "/").split("/")[-1])
 			
+
+def parseArgs(args):
 	
+	parser = argparse.ArgumentParser()
+	
+	parser.add_argument("makeFile", type=str)
+	parser.add_argument("--outFile", type=str)
+	parser.add_argument("-dir", "--outDirs", type=str, nargs="+")
+	parser.add_argument("-j", "--jarName", type=str)
+	parser.add_argument("-t", "--targets", type=str, nargs="+")
+	parser.add_argument("--runScripts", type=str, nargs="+")
+	parser.add_argument("-m", "--mainClass", type=str)
+	
+	return parser.parse_args(args)
+
+
 if __name__ == "__main__":
 	
-	if len(sys.argv) < 2:
-		print("No Makefile specified.")
+	args = parseArgs(sys.argv[1:])
+	
+	if not args.makeFile:
+		print("No makefile specified.")
 		quit()
 	
-	makeFile = sys.argv[1]
-	
-	if not os.path.exists(makeFile):
-		print("\""+makeFile+"\" not found.")
+	if not os.path.exists(args.makeFile):
+		print("\""+args.makeFile+"\" not found.")
 		quit()
 	
-	outFile = ""
-	
-	if len(sys.argv) >= 3:
-		outFile = sys.argv[2].replace("\\", "/")
-		
-	make(makeFile, outFile)
+	make(args.makeFile, args)

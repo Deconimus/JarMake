@@ -4,7 +4,7 @@ from utils import *
 
 def writeManifest(makeData):
 	
-	extLibDir = makeData.outDir+"/"+makeData.extLibDir
+	extLibDir = makeData.extLibDir
 	
 	txt = "Manifest-Version: 1.0\n"
 	
@@ -66,9 +66,9 @@ def javaBinCmdString(makeData):
 	cmd += " " + mainClass
 
 
-def writeBatchBinScript(makeData):
+def writeBatchBinScript(makeData, outDir):
 	
-	outfile = getScriptPath(makeData, ".bat")
+	outfile = getScriptPath(makeData, outDir, ".bat")
 	
 	txt = "@echo off\r\n"
 	
@@ -78,9 +78,9 @@ def writeBatchBinScript(makeData):
 	writeFile(outfile, txt)
 		
 		
-def writeShellBinScript(makeData):
+def writeShellBinScript(makeData, outDir):
 	
-	outfile = getScriptPath(makeData, ".sh")
+	outfile = getScriptPath(makeData, outDir, ".sh")
 	
 	txt = "#!/bin/sh\n"
 	
@@ -90,9 +90,9 @@ def writeShellBinScript(makeData):
 	writeFile(outfile, txt)
 
 
-def writePythonBinScript(makeData):
+def writePythonBinScript(makeData, outDir):
 	
-	outfile = getScriptPath(makeData, ".py")
+	outfile = getScriptPath(makeData, outDir, ".py")
 	
 	txt = "import os, sys\n\n"
 	
@@ -103,9 +103,9 @@ def writePythonBinScript(makeData):
 	txt += " \"+\" \".join(sys.argv)\n"
 	
 
-def getScriptPath(makeData, ext):
+def getScriptPath(makeData, outDir, ext):
 	
-	outfile = makeData.outDir+"/"
+	outfile = outDir+"/"
 	
 	if makeData.jarName:
 		outfile += makeData.jarName[:-4]
