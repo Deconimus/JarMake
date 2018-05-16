@@ -57,6 +57,8 @@ def compile(makeData, outdir):
 	if not outdir in makeData.imports:
 		makeData.imports.append(outdir)
 	
+	copySrcDataFiles(makeData, outdir)
+	
 	timestamp = outdir+"/compile.timestamp"
 	log = open(outdir+"/compile.log", "w+")
 	
@@ -325,6 +327,32 @@ def copyLibraries(paths, parent):
 		if f.lower().endswith(".jar"):
 			
 			cpf(f, parent+"/"+f.replace("\\", "/").split("/")[-1])
+			
+			
+def copySrcDataFiles(makeData, outdir):
+	
+	for srcdir in makeData.srcDirs:
+		for dirName, subdirList, fileList in os.walk(srcdir):
+			
+			if not subdirList and not fileList:
+				continue
+			
+			dirName = dirName.replace("\\", "/")
+			outDirName = outdir+dirName[len(srcdir):]
+			
+			if not os.path.exists(outDirName) and not os.path.isdir(outDirName):
+				os.makedirs(outDirName)
+				
+			for fn in fileList:
+				if fn.lower().endswith(".java"): continue
+					
+				file = dirName+"/"+fn
+				outFile = outDirName+"/"+fn
+				
+				if not os.path.exists(outFile) or \
+				   os.path.getmtime(file) > os.path.getmtime(outFile):
+					
+					cpf(file, outFile)
 			
 
 def parseArgs(args):
