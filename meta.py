@@ -22,7 +22,7 @@ def writeManifest(makeData):
 	
 	if makeData.mainClass:
 	
-		txt += ("Rsrc-" if makeData.dynImports else "") + "Main-Class: "+makeData.mainClass.strip()+"\n";
+		txt += ("Rsrc-" if makeData.dynImports else "")+"Main-Class: "+makeData.mainClass.strip()+"\n";
 		
 		if makeData.dynImports:
 			

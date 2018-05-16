@@ -1,5 +1,5 @@
-import os, shutil, zipfile, sys, subprocess, hashlib, platform, argparse
-import compositor, meta
+import os, shutil, zipfile, sys, subprocess, hashlib, platform, argparse, subprocess
+import compositor, meta, multiOut
 from utils import *
 
 win = sys.platform.startswith("win")
@@ -69,11 +69,11 @@ def compile(makeData, outdir):
 		
 	print("Compiling "+makeData.projectPath[makeData.projectPath.rfind("/")+1:])
 	
-	log.write("Sources to compile:\n\n")
+	log.write(">Sources to compile:\n\n")
 	for src in srcStrings:
 		log.write(src+"\n")
 	
-	log.write("\nClasspaths:\n\n")
+	log.write("\n>Classpaths:\n\n")
 	for lst in makeData.imports, makeData.dynImports, makeData.dynImportsExt:
 		for s in lst:
 			log.write(s+"\n")
@@ -98,16 +98,33 @@ def compile(makeData, outdir):
 	
 	commands = buildCommands(cmdPrefix, cmdSuffix, srcStrings, cmdlimit)
 	
-	log.write("\nJavac commands:\n\n")
+	log.write("\n>Javac output:\n")
+	
+	tmpLogPath = outdir+"/tmpcompile.log"
 	
 	for cmd in commands:
 		
-		os.system(cmd)
-		
+		log.write("\n>>Command:\n")
 		log.write(cmd+"\n\n")
+		
+		with open(tmpLogPath, "w+") as tmpLog:
+			subprocess.call(cmd, stdout=tmpLog, stderr=tmpLog, shell=True)
+		
+		with open(tmpLogPath, "r") as tmpLog:
+			tmpLogVal = tmpLog.read().strip()
+		
+		if tmpLogVal:
+			print(tmpLogVal)
+			log.write(">>Output:\n")
+			log.write(tmpLogVal)
+			log.write("\n")
+			
+		log.flush()
 		
 	log.flush()
 	log.close()
+	
+	os.remove(tmpLogPath)
 	
 	touch(timestamp)
 	

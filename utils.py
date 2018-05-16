@@ -1,4 +1,4 @@
-import os, shutil, sys, subprocess
+import os, shutil, sys, subprocess, io
 
 win = sys.platform.startswith("win")
 linux = sys.platform.startswith("linux")
@@ -91,13 +91,10 @@ def writeFile(filepath, text):
 		f.write(text)
 		
 		
-def listsEqual(listA, listB):
-	
-	if len(listA) != len(listB):
-		return False
+class StringIOFix(io.StringIO):
+
+	def __init__(self, initial_value="", newline="\n"):
+		super(StringIOFix, self).__init__(initial_value, newline)
 		
-	for a, b in zip(listA, listB):
-		if a != b:
-			return False
-			
-	return True
+	def fileno(self):
+		return 1
