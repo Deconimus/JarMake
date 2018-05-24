@@ -91,6 +91,17 @@ def writeFile(filepath, text):
 		f.write(text)
 		
 		
+def is_absolute(path):
+	
+	if not path or not isinstance(path, str) or len(path) < 3:
+		return False
+	
+	if path[0] == "/" or path[1] == ":" or path[0] == "\\" or ":" in path:
+		return True
+		
+	return False
+	
+		
 class StringIOFix(io.StringIO):
 
 	def __init__(self, initial_value="", newline="\n"):

@@ -129,9 +129,12 @@ def writePythonScript(makeData, outDir, target):
 	
 	txt += "if __name__ == \"__main__\":\n"
 	txt += "\t\n"
+	txt += "\targstr = \" \".join(sys.argv[1:])\n"
+	txt += "\t\n"
 	txt += "\tos.system(\""
-	txt += javaCmdString(makeData, target)
-	txt += " \"+\" \".join(sys.argv[1:])\n"
+	txt += javaCmdString(makeData, target).replace("\"", "\\\"")
+	txt += " \"+argstr)\n"
+	txt += "\t\n"
 	
 	writeFile(outfile, txt)
 	

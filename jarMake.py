@@ -151,7 +151,11 @@ def buildJar(makeData):
 		if not os.path.exists(f):
 			print("Warning: Couldn't find \""+f+"\"!")
 			continue
-		cpf(f, tmp+"/"+(f[f.rfind("/")+1:]))
+		if f.startswith(makeData.projectPath):
+			dst = tmp+f[len(makeData.projectPath):]
+		else:
+			dst = tmp+(f[f.rfind("/"):])
+		cpf(f, dst)
 	
 	meta.writeManifest(makeData)
 	

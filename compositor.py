@@ -3,7 +3,10 @@ import jarMake, meta
 from utils import *
 from makeData import MakeData
 
+
 path = os.path.dirname(os.path.abspath(__file__)).replace("\\", "/")
+
+compiled_dependencies = set([])
 
 
 def build(projectPath, data):
@@ -82,11 +85,22 @@ def buildJarTarget(makeData, data, binPath):
 		
 	
 	for outDir in makeData.outDirs:
-		
-		for scriptType in makeData.runScripts:
-			meta.writeScript(makeData, outDir, "jar", scriptType)
-		
 		cpf(makeData.projectPath+"/.jarMakeCache/build.jar", outDir+"/"+makeData.jarName, True)
+		
+	if makeData.runScripts:
+		
+		print("Writing runscripts.")
+		
+		for outDir in makeData.outDirs:
+			for scriptType in makeData.runScripts:
+				meta.writeScript(makeData, outDir, "jar", scriptType)
+	
+	if makeData.copyFiles:
+		
+		print("Copying files into output directories.")
+		
+		for outDir in makeData.outDirs:
+			copyFilesToTarget(makeData, outDir)
 	
 	
 def buildBinTarget(makeData, binPath):
@@ -112,6 +126,9 @@ def buildBinTarget(makeData, binPath):
 		for scriptType in makeData.runScripts:
 			
 			meta.writeScript(makeData, outDir, "bin", scriptType)
+			
+		copyFilesToTarget(makeData, outDir)
+			
 				
 def buildCompileTarget(makeData, binPath):
 	
@@ -139,6 +156,23 @@ def processMakeData(projectPath, data):
 	return makeData
 	
 	
+def copyFilesToTarget(makeData, outDir):
+	
+	for i in range(0, len(makeData.copyFiles), 2):
+		
+		src = makeData.copyFiles[i]
+		dst = outDir+"/"+makeData.copyFiles[i+1]
+		
+		parent = os.path.abspath(os.path.dirname(dst))
+		
+		if not os.path.exists(parent): os.makedirs(parent)
+		
+		if os.path.exists(dst) and os.path.getmtime(dst) >= os.path.getmtime(src):
+			continue
+		
+		cpf(src, dst)
+	
+	
 def completePaths(paths, projectPath):
 	
 	for i in range(0, len(paths)):
@@ -150,7 +184,7 @@ def completePath(p, projectPath):
 	
 	p = p.replace("\\", "/")
 	
-	if not p.startswith("/") and not (len(p) > 1 and p[1] == ":"):
+	if not is_absolute(p):
 		
 		p = projectPath+"/"+p
 		
@@ -264,11 +298,17 @@ def buildDependency(project, data):
 	
 def compileDependency(projectPath, data, binPath):
 	
+	global compiled_dependencies
+	
 	projectPath = projectPath.replace("\\", "/")
 	
-	makeData = processMakeData(projectPath, data)
+	if not projectPath in compiled_dependencies:
+		
+		compiled_dependencies.add(projectPath)
 	
-	jarMake.compile(makeData, binPath)
+		makeData = processMakeData(projectPath, data)
+		
+		jarMake.compile(makeData, binPath)
 	
 	
 def checkUpToDate(projectPath, makeData):
