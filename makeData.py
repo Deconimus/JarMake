@@ -24,9 +24,12 @@ class MakeData:
 		self.runOptions = []
 		
 	
-	def loadFromData(self, projectPath, data):
+	def loadFromData(self, projectPath, jsonData):
+		
+		data = utils.CaseInsensitiveDict(jsonData)
 		
 		self.projectPath = projectPath.replace("\\", "/")
+		
 		self.jarName = data["jarName"] if "jarName" in data else self.jarName
 		self.outDirs = data["outDir"] if "outDir" in data else self.outDirs
 		self.outDirs = data["outDirs"] if "outDirs" in data else self.outDirs

@@ -149,6 +149,10 @@ def processMakeData(projectPath, data):
 	makeData = MakeData()
 	makeData.loadFromData(projectPath, data)
 	
+	if makeData.outDirs[0] == projectPath+"/release":
+		if os.path.exists(projectPath+"/.gitignore"):
+			meta.addGitignoreEntry(projectPath+"/.gitignore", "release")
+	
 	checkForProjects(makeData.imports, makeData.dynImports, makeData.dynImportsExt, makeData.srcDirs)
 	checkForProjectsDyn(makeData.dynImports)
 	checkForProjectsDyn(makeData.dynImportsExt)
