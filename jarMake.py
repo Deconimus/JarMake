@@ -214,7 +214,7 @@ def getSources(srcDirs, projectPath, binDir, timestamp):
 				if os.path.exists(classPackageDir):
 					for f in os.listdir(classPackageDir):
 						if not f.endswith(".class"): continue
-						os.remove(f)
+						os.remove(classPackageDir+"/"+f)
 				
 			elif sourcesToCompile:
 				
