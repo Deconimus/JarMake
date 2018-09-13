@@ -155,7 +155,11 @@ def buildJar(makeData):
 			dst = tmp+f[len(makeData.projectPath):]
 		else:
 			dst = tmp+(f[f.rfind("/"):])
-		cpf(f, dst)
+		
+		if os.path.isdir(f):
+			copyDir(f, dst)
+		else:
+			cpf(f, dst)
 	
 	meta.writeManifest(makeData)
 	
