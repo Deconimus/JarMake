@@ -22,6 +22,7 @@ class MakeData:
 		self.runScripts = []
 		self.javacOptions = []
 		self.runOptions = []
+		self.compiledDependency = False
 		
 	
 	def loadFromData(self, projectPath, jsonData):

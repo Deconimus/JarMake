@@ -40,7 +40,7 @@ def build(projectPath, data):
 	
 def buildJarTarget(makeData, data, binPath):
 	
-	if not checkUpToDate(makeData.projectPath, makeData):
+	if makeData.compiledDependency or (not checkUpToDate(makeData.projectPath, makeData)):
 		
 		jarMake.compile(makeData, binPath)
 		
@@ -153,9 +153,9 @@ def processMakeData(projectPath, data):
 		if os.path.exists(projectPath+"/.gitignore"):
 			meta.addGitignoreEntry(projectPath+"/.gitignore", "release")
 	
-	checkForProjects(makeData.imports, makeData.dynImports, makeData.dynImportsExt, makeData.srcDirs)
-	checkForProjectsDyn(makeData.dynImports)
-	checkForProjectsDyn(makeData.dynImportsExt)
+	checkForProjects(makeData, makeData.imports, makeData.dynImports, makeData.dynImportsExt, makeData.srcDirs)
+	checkForProjectsDyn(makeData, makeData.dynImports)
+	checkForProjectsDyn(makeData, makeData.dynImportsExt)
 	
 	return makeData
 	
@@ -207,12 +207,12 @@ def isProject(path):
 	return path.endswith(".json") or os.path.exists(path+"/make.json")
 	
 
-def checkForProjectsDyn(imports):
+def checkForProjectsDyn(makeData, imports):
 	
-	checkForProjects(imports, None, None, None, dynamic=True)
+	checkForProjects(makeData, imports, None, None, None, dynamic=True)
 
 
-def checkForProjects(imports, dynImports, dynImportsExt, srcDirs, dynamic=False):
+def checkForProjects(makeData, imports, dynImports, dynImportsExt, srcDirs, dynamic=False):
 	
 	i = 0
 	while i < len(imports):
@@ -237,6 +237,8 @@ def checkForProjects(imports, dynImports, dynImportsExt, srcDirs, dynamic=False)
 					
 					imports[i] = buildDependency(project, data)
 					
+					makeData.compiledDependency = True
+					
 				else:
 					
 					complete = lambda p: completePath(p, project)
@@ -248,6 +250,8 @@ def checkForProjects(imports, dynImports, dynImportsExt, srcDirs, dynamic=False)
 					binPath = project+"/.jarMakeCache/bin"
 					
 					compileDependency(project, data, binPath)
+					
+					makeData.compiledDependency = True
 					
 					if not binPath in imports:
 						imports.append(binPath)
